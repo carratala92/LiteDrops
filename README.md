@@ -10,7 +10,7 @@
 ## 日本語
 
 ### 特徴
-- **軽い**：約 500 KB の exe 1 つ。メモリはウィンドウ表示中で約 20 MB、トレイ格納中はさらに解放します
+- **軽い**：メモリはウィンドウ表示中で約 10〜30 MB、トレイ格納中は約 3 MB まで解放します
 - **選んだゲームだけ**：チェックを入れたゲームを上から順に掘ります
 - **ドラッグで並べ替え**：左のつまみ（⋮⋮）をドラッグして優先順位を変更、× で削除（削除は「元に戻す」で取り消せます）
 - **ゲーム検索**：ゲーム名を入力すると Twitch 上の正式名が候補に出るので、選ぶだけで追加できます
@@ -22,10 +22,19 @@
 
 ### 動作環境
 - Windows 10 / 11（64bit）
-- [.NET 10 デスクトップ ランタイム](https://dotnet.microsoft.com/download/dotnet/10.0)
+
+### ダウンロード
+[Releases](../../releases) から、どちらか一方をダウンロードしてください。
+
+| ファイル | サイズ | 説明 |
+|---|---|---|
+| `LiteDrops-standalone-win-x64.zip` | 約 42 MB | **迷ったらこちら**。展開して出てきた `LiteDrops.exe` をそのまま起動できます |
+| `LiteDrops.exe` | 約 0.5 MB | [.NET 10 デスクトップ ランタイム](https://dotnet.microsoft.com/download/dotnet/10.0) が入っている PC 向け。入っていない場合は起動時に案内が出ます |
+
+どちらも中身と動作は同じで、メモリ使用量もほぼ変わりません。
 
 ### 使い方
-1. [Releases](../../releases) から `LiteDrops.exe` をダウンロードし、好きなフォルダに置いて起動します
+1. ダウンロードした `LiteDrops.exe` を好きなフォルダに置いて起動します
 2. 「Twitch でログイン」を押します。ブラウザで Twitch の認証ページが開くので、表示されたコードを入力して許可します
 3. 検索欄にゲーム名を入力し、候補から選んで追加します
 4. チェックの入ったゲームのキャンペーンを自動で探して、視聴を始めます
@@ -46,7 +55,7 @@
 ## English
 
 ### Features
-- **Tiny**: a single ~500 KB exe, ~20 MB of RAM with the window open and less while in the tray
+- **Light**: about 10–30 MB of RAM with the window open, about 3 MB while in the tray
 - **Only your games**: checked games are mined top to bottom
 - **Drag & drop priority**: drag the ⋮⋮ handle to reorder, × to remove (with undo)
 - **Game search**: type a name and pick Twitch's exact spelling from the suggestions
@@ -58,10 +67,17 @@
 
 ### Requirements
 - Windows 10 / 11 (x64)
-- [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+
+### Download
+Get one of these from [Releases](../../releases):
+
+- `LiteDrops-standalone-win-x64.zip` (~42 MB) — **recommended**, no install needed: unzip and run `LiteDrops.exe`
+- `LiteDrops.exe` (~0.5 MB) — for PCs with the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0) (you're prompted to install it if missing)
+
+Both behave the same and use about the same memory.
 
 ### Usage
-1. Download `LiteDrops.exe` from [Releases](../../releases) and run it
+1. Put `LiteDrops.exe` in any folder and run it
 2. Click **Log in with Twitch**, then enter the shown code on the Twitch activation page
 3. Add games with the search box (pick a suggestion), then leave it running
 
@@ -78,6 +94,7 @@ Drag rows to change the priority (top = first). Keyboard: Alt+↑/↓ to move, D
 
 ```
 dotnet publish -c Release -o publish
+dotnet publish -c Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -o standalone
 ```
 
 ## License
