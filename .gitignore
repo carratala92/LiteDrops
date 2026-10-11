@@ -1,0 +1,15 @@
+# build output
+bin/
+obj/
+publish/
+*.user
+.vs/
+
+# local runtime files (login token, personal game list, logs)
+litedrops.json
+settings.json
+*.log
+*.log.old
+
+# design mockups (contain personal names and third-party logos)
+design/
