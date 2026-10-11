@@ -21,6 +21,10 @@ public sealed class AppSettings
     public string DeviceId { get; set; } = "";
     public string ProtectedToken { get; set; } = "";
     public bool CloseToTray { get; set; } = true;
+    /// <summary>"auto", "en" or "ja".</summary>
+    public string Language { get; set; } = "auto";
+    /// <summary>Last window position and size as "x,y,width,height".</summary>
+    public string? WindowBounds { get; set; }
 
     [JsonIgnore]
     public string? AccessToken

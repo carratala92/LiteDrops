@@ -176,6 +176,7 @@ public sealed class TwitchApi : IDisposable
         return (result["data"]?["searchCategories"]?["edges"] as JsonArray ?? [])
             .Select(e => (string?)e?["node"]?["displayName"])
             .OfType<string>()
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 

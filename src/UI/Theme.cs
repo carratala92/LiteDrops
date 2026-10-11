@@ -19,7 +19,8 @@ static class Theme
     public static readonly Color Amber = Color.FromArgb(0xF5, 0xB7, 0x31);
     public static readonly Color Red = Color.FromArgb(0xEB, 0x4D, 0x4B);
 
-    const string Family = "Segoe UI";
+    // Segoe UI has no Japanese glyphs; Yu Gothic UI matches its look
+    static readonly string Family = L.Ja ? "Yu Gothic UI" : "Segoe UI";
     public static readonly Font Title = new(Family + " Semibold", 17f);
     public static readonly Font Heading = new(Family + " Semibold", 10.5f);
     public static readonly Font Big = new(Family + " Semibold", 14f);

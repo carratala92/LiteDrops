@@ -25,6 +25,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     MinerSnapshot _snapshot = new(MinerStatus.Starting, "Starting…", null, []);
 
     public event Action<MinerSnapshot>? Changed;
+    public event Action<string, string>? Claimed; // game, drop
     public MinerSnapshot Snapshot => _snapshot;
 
     /// <summary>Interrupts waiting/watching so the game selection is re-read right away.</summary>
@@ -41,14 +42,14 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
         {
             try
             {
-                Publish(MinerStatus.Starting, "Looking for campaigns…", null);
+                Publish(MinerStatus.Starting, L.LookingForCampaigns, null);
                 await RefreshAsync(ct);
                 var target = PickTarget();
                 if (target is null)
                 {
                     var anyGame = settings.Games.Any(g => g.Enabled);
                     Publish(MinerStatus.Idle,
-                        anyGame ? "No live drops for the selected games" : "Select a game to mine", null);
+                        anyGame ? L.NoLiveDrops : L.SelectGame, null);
                     await WaitAsync(IdleRetry, ct);
                     continue;
                 }
@@ -61,13 +62,13 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             catch (AuthExpiredException)
             {
                 Log.Warn("Login expired");
-                Publish(MinerStatus.LoginRequired, "Login expired — please log in again", null);
+                Publish(MinerStatus.LoginRequired, L.LoginExpired, null);
                 throw;
             }
             catch (Exception ex) when (ex is TwitchApiException or HttpRequestException or TaskCanceledException)
             {
                 Log.Error(ex.Message);
-                Publish(MinerStatus.Error, $"Error: {ex.Message} (retrying in 1 min)", null);
+                Publish(MinerStatus.Error, L.ErrorRetry(ex.Message), null);
                 await WaitAsync(TimeSpan.FromMinutes(1), ct);
             }
         }
@@ -200,6 +201,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
                 {
                     drop.IsClaimed = true;
                     Log.Info($"Claimed: {campaign.GameName} / {drop.Name}");
+                    Claimed?.Invoke(campaign.GameName, drop.Name);
                 }
                 else
                 {
@@ -312,7 +314,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     // ------------------------------------------------------------ UI snapshot
 
     void PublishWatching(Campaign campaign, ChannelRef channel, Drop drop) => Publish(
-        MinerStatus.Mining, "Mining",
+        MinerStatus.Mining, L.Mining,
         new WatchInfo(channel, campaign.GameName, campaign.Name, campaign.EndAt, drop.Name,
             drop.CurrentMinutes, drop.RequiredMinutes));
 

@@ -20,6 +20,12 @@ sealed class CardPanel : Panel
     [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string Heading { get; set; } = "";
 
+    string _hint = "";
+
+    /// <summary>Small grey text on the right of the heading.</summary>
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public string Hint { get => _hint; set { _hint = value; Invalidate(); } }
+
     public CardPanel()
     {
         DoubleBuffered = true;
@@ -38,6 +44,10 @@ sealed class CardPanel : Panel
         Theme.DrawRounded(g, Theme.CardBorder, r, 10 * s);
         if (Heading.Length > 0)
             TextRenderer.DrawText(g, Heading, Theme.Heading, new Point((int)(16 * s), (int)(12 * s)), Theme.Accent);
+        if (_hint.Length > 0)
+            TextRenderer.DrawText(g, _hint, Theme.Small,
+                new Rectangle(0, (int)(13 * s), Width - (int)(16 * s), (int)(20 * s)), Theme.SubText,
+                TextFormatFlags.Right | TextFormatFlags.Top | TextFormatFlags.EndEllipsis);
     }
 }
 
@@ -126,154 +136,6 @@ sealed class AccentButton : Control
         Theme.FillRounded(g, color, new RectangleF(0, 0, Width - 1, Height - 1), 7 * DeviceDpi / 96f);
         TextRenderer.DrawText(g, Text, Font, ClientRectangle, Enabled ? Color.White : Theme.SubText,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-    }
-}
-
-/// <summary>Text box with a rounded dark frame.</summary>
-sealed class DarkTextBox : Panel
-{
-    public TextBox Box { get; } = new()
-    {
-        BorderStyle = BorderStyle.None,
-        BackColor = Theme.Input,
-        ForeColor = Theme.Text,
-        Font = Theme.Body,
-    };
-
-    public DarkTextBox()
-    {
-        DoubleBuffered = true;
-        ResizeRedraw = true;
-        BackColor = Theme.Card;
-        Controls.Add(Box);
-        Box.GotFocus += (_, _) => Invalidate();
-        Box.LostFocus += (_, _) => Invalidate();
-    }
-
-    protected override void OnLayout(LayoutEventArgs e)
-    {
-        base.OnLayout(e);
-        var s = DeviceDpi / 96f;
-        var pad = (int)(10 * s);
-        Box.SetBounds(pad, (Height - Box.Height) / 2, Width - pad * 2, Box.Height);
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        Theme.Smooth(g);
-        var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
-        var radius = 7 * DeviceDpi / 96f;
-        Theme.FillRounded(g, Theme.Input, r, radius);
-        Theme.DrawRounded(g, Box.Focused ? Theme.Accent : Theme.CardBorder, r, radius);
-    }
-}
-
-/// <summary>Game list with checkboxes; the order is the mining priority.</summary>
-sealed class GameListBox : ListBox
-{
-    public event Action? SelectionChanged;
-
-    public GameListBox()
-    {
-        DrawMode = DrawMode.OwnerDrawFixed;
-        BorderStyle = BorderStyle.None;
-        BackColor = Theme.Card;
-        ForeColor = Theme.Text;
-        Font = Theme.Body;
-        ItemHeight = 28;
-        IntegralHeight = false;
-        NativeTheme.Dark(this);
-    }
-
-    int BoxSize => (int)(18 * DeviceDpi / 96f);
-
-    protected override void OnDrawItem(DrawItemEventArgs e)
-    {
-        if (e.Index < 0 || e.Index >= Items.Count) return;
-        var g = e.Graphics;
-        var game = (GameEntry)Items[e.Index];
-        var selected = (e.State & DrawItemState.Selected) != 0;
-        using (var bg = new SolidBrush(selected ? Theme.Input : Theme.Card))
-            g.FillRectangle(bg, e.Bounds);
-        Theme.Smooth(g);
-        var s = DeviceDpi / 96f;
-        var box = new RectangleF(e.Bounds.X + 2 * s, e.Bounds.Y + (e.Bounds.Height - BoxSize) / 2f, BoxSize, BoxSize);
-        if (game.Enabled)
-        {
-            Theme.FillRounded(g, Theme.Accent, box, 4 * s);
-            using var pen = new Pen(Color.White, 2 * s);
-            g.DrawLines(pen, [
-                new PointF(box.X + box.Width * 0.24f, box.Y + box.Height * 0.52f),
-                new PointF(box.X + box.Width * 0.43f, box.Y + box.Height * 0.70f),
-                new PointF(box.X + box.Width * 0.77f, box.Y + box.Height * 0.32f),
-            ]);
-        }
-        else
-        {
-            Theme.DrawRounded(g, Theme.SubText, box, 4 * s, 1.5f * s);
-        }
-        var textRect = new Rectangle((int)(box.Right + 10 * s), e.Bounds.Y, e.Bounds.Width, e.Bounds.Height);
-        TextRenderer.DrawText(g, game.Name, Font, textRect, game.Enabled ? Theme.Text : Theme.SubText,
-            TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-    }
-
-    protected override void OnMouseDown(MouseEventArgs e)
-    {
-        base.OnMouseDown(e);
-        var index = IndexFromPoint(e.Location);
-        if (e.Button == MouseButtons.Left && index >= 0 && e.X < BoxSize + 30 * DeviceDpi / 96f)
-            Toggle(index);
-    }
-
-    protected override void OnMouseDoubleClick(MouseEventArgs e)
-    {
-        base.OnMouseDoubleClick(e);
-        var index = IndexFromPoint(e.Location);
-        if (index >= 0 && e.X >= BoxSize + 30 * DeviceDpi / 96f) Toggle(index);
-    }
-
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (e.KeyCode == Keys.Space && SelectedIndex >= 0) Toggle(SelectedIndex);
-    }
-
-    void Toggle(int index)
-    {
-        var game = (GameEntry)Items[index];
-        game.Enabled = !game.Enabled;
-        Invalidate(GetItemRectangle(index));
-        SelectionChanged?.Invoke();
-    }
-}
-
-/// <summary>Game name suggestions shown while typing in the "Add game" box.</summary>
-sealed class SuggestionListBox : ListBox
-{
-    public SuggestionListBox()
-    {
-        DrawMode = DrawMode.OwnerDrawFixed;
-        BorderStyle = BorderStyle.None;
-        BackColor = Theme.Input;
-        ForeColor = Theme.Text;
-        Font = Theme.Body;
-        ItemHeight = 26;
-        IntegralHeight = false;
-        Cursor = Cursors.Hand;
-        NativeTheme.Dark(this);
-    }
-
-    protected override void OnDrawItem(DrawItemEventArgs e)
-    {
-        if (e.Index < 0 || e.Index >= Items.Count) return;
-        var selected = (e.State & DrawItemState.Selected) != 0;
-        using (var bg = new SolidBrush(selected ? Theme.AccentDim : Theme.Input))
-            e.Graphics.FillRectangle(bg, e.Bounds);
-        var pad = (int)(8 * DeviceDpi / 96f);
-        var r = e.Bounds with { X = e.Bounds.X + pad, Width = e.Bounds.Width - pad };
-        TextRenderer.DrawText(e.Graphics, (string)Items[e.Index], Font, r, Theme.Text,
-            TextFormatFlags.VerticalCenter | TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
     }
 }
 
