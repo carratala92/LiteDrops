@@ -24,7 +24,7 @@ sealed class SettingsDialog : Form
         AutoScaleDimensions = new SizeF(96F, 96F);
         AutoScaleMode = AutoScaleMode.Dpi;
         FormBorderStyle = FormBorderStyle.None;
-        StartPosition = FormStartPosition.CenterParent;
+        StartPosition = FormStartPosition.Manual;
         ShowInTaskbar = false;
         KeyPreview = true;
         BackColor = Theme.Card;
@@ -45,7 +45,8 @@ sealed class SettingsDialog : Form
         };
         close.MouseEnter += (_, _) => close.ForeColor = Theme.Text;
         close.MouseLeave += (_, _) => close.ForeColor = Theme.SubText;
-        close.Click += (_, _) => DialogResult = DialogResult.OK;
+        close.Click += (_, _) => Close();
+        title.MouseDown += (_, e) => DragWindow(e);
         Controls.AddRange([title, close, Divider(0, 56, 420)]);
 
         _autostart.Checked = AutoStart.IsEnabled;
@@ -80,7 +81,7 @@ sealed class SettingsDialog : Form
         {
             Text = L.Done, Bounds = new Rectangle(298, 378, 100, 40), BackColor = Theme.Card,
         };
-        done.Click += (_, _) => DialogResult = DialogResult.OK;
+        done.Click += (_, _) => Close();
 
         Controls.AddRange([version, github, done]);
         ResumeLayout(false);
@@ -124,7 +125,33 @@ sealed class SettingsDialog : Form
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.KeyCode == Keys.Escape) DialogResult = DialogResult.OK;
+        if (e.KeyCode == Keys.Escape) Close();
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern bool ReleaseCapture();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>Lets the borderless dialog be moved by dragging its title area.</summary>
+    void DragWindow(MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        ReleaseCapture();
+        SendMessage(Handle, 0xA1, 2, IntPtr.Zero); // WM_NCLBUTTONDOWN, HTCAPTION
+    }
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Y < 56 * DeviceDpi / 96) DragWindow(e);
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        ActiveControl = null; // no control highlighted until the keyboard is used
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -197,7 +224,7 @@ sealed class ToggleSwitch : Control
         Theme.Smooth(g);
         var r = new RectangleF(1, 1, Width - 2, Height - 2);
         Theme.FillRounded(g, _checked ? Theme.Accent : Theme.Track, r, r.Height / 2);
-        if (Focused) Theme.DrawRounded(g, Theme.Text, r, r.Height / 2, 1f);
+        if (Focused && ShowFocusCues) Theme.DrawRounded(g, Theme.AccentDim, r, r.Height / 2, 2f);
         var knob = r.Height - 6;
         var x = _checked ? r.Right - knob - 3 : r.X + 3;
         using var brush = new SolidBrush(_checked ? Color.White : Theme.SubText);

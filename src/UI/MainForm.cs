@@ -443,9 +443,18 @@ sealed class MainForm : Form
             open.Activate();
             return;
         }
-        using var dialog = new SettingsDialog(_settings);
-        dialog.ShowDialog(this);
-        ChangeLanguage(dialog.Language);
+        // not modal: the main window stays usable while the settings are open
+        Log.Info("Settings opened");
+        var dialog = new SettingsDialog(_settings);
+        dialog.FormClosed += (_, e) =>
+        {
+            Log.Info($"Settings closed ({e.CloseReason})");
+            ChangeLanguage(dialog.Language);
+            dialog.Dispose();
+        };
+        var b = Bounds;
+        dialog.Location = new Point(b.X + (b.Width - dialog.Width) / 2, b.Y + Math.Min(120, (b.Height - dialog.Height) / 2));
+        dialog.Show(this);
     }
 
     void ChangeLanguage(string code)
