@@ -15,6 +15,7 @@ sealed class MainForm : Form
     // header
     readonly Panel _header = new() { Dock = DockStyle.Top, Height = 66, BackColor = Theme.Background };
     readonly StatusPill _status = new() { Size = new Size(150, 34) };
+    readonly GearButton _gear = new();
     // now watching
     readonly CardPanel _watchCard = new() { Dock = DockStyle.Top, Height = 204 };
     readonly Panel _watchView = new() { BackColor = Theme.Card };
@@ -137,8 +138,15 @@ sealed class MainForm : Form
             Location = new Point(42, 14), BackColor = Theme.Background,
         };
         _status.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        _header.Controls.AddRange([logo, title, _status]);
-        _header.Resize += (_, _) => _status.Location = new Point(_header.ClientSize.Width - _status.Width, 16);
+        _gear.Anchor = AnchorStyles.Top | AnchorStyles.Right;
+        _gear.Click += (_, _) => OpenSettings();
+        _tips.SetToolTip(_gear, L.Settings);
+        _header.Controls.AddRange([logo, title, _gear, _status]);
+        _header.Resize += (_, _) =>
+        {
+            _status.Location = new Point(_header.ClientSize.Width - _status.Width, 16);
+            _gear.Location = new Point(_status.Left - _gear.Width - 8, 16);
+        };
     }
 
     void BuildWatchCard()
@@ -283,20 +291,13 @@ sealed class MainForm : Form
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add(L.Show, null, (_, _) => ShowFromTray());
-        var autostart = new ToolStripMenuItem(L.StartWithWindows) { CheckOnClick = true };
-        autostart.Click += (_, _) => AutoStart.Set(autostart.Checked);
-        menu.Items.Add(autostart);
-        var language = new ToolStripMenuItem(L.Language);
-        foreach (var (code, label) in new[] { ("auto", L.LanguageAuto), ("en", "English"), ("ja", "日本語") })
+        menu.Items.Add(L.SettingsMenu, null, (_, _) =>
         {
-            var item = new ToolStripMenuItem(label) { Checked = _settings.Language == code };
-            item.Click += (_, _) => ChangeLanguage(code);
-            language.DropDownItems.Add(item);
-        }
-        menu.Items.Add(language);
+            ShowFromTray();
+            OpenSettings();
+        });
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(L.Exit, null, (_, _) => ExitApp());
-        menu.Opening += (_, _) => autostart.Checked = AutoStart.IsEnabled;
         return menu;
     }
 
@@ -433,6 +434,18 @@ sealed class MainForm : Form
     {
         _exiting = true;
         Close();
+    }
+
+    void OpenSettings()
+    {
+        if (OwnedForms.OfType<SettingsDialog>().FirstOrDefault() is { } open)
+        {
+            open.Activate();
+            return;
+        }
+        using var dialog = new SettingsDialog(_settings);
+        dialog.ShowDialog(this);
+        ChangeLanguage(dialog.Language);
     }
 
     void ChangeLanguage(string code)

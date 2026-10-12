@@ -83,6 +83,14 @@ static class L
     public static string StartWithWindows => T("Start with Windows", "Windows 起動時に開始");
     public static string Language => T("Language", "言語");
     public static string LanguageAuto => T("Auto (Windows setting)", "自動（Windows の設定）");
+    public static string LanguageAutoShort => T("Auto", "自動");
+    public static string Settings => T("Settings", "設定");
+    public static string SettingsMenu => T("Settings…", "設定…");
+    public static string StartWithWindowsDesc => T("Starts in the tray when you sign in", "サインインすると、トレイに入った状態で起動します");
+    public static string CloseToTray => T("Close to tray", "閉じたらトレイに格納");
+    public static string CloseToTrayDesc => T("The × button keeps LiteDrops running in the tray", "× で閉じても、トレイで動き続けます");
+    public static string LanguageDesc => T("Restarts the app", "変更するとアプリが再起動します");
+    public static string Done => T("Done", "完了");
     public static string DropClaimed => T("Drop claimed", "ドロップを受け取りました");
     public static string AlreadyRunning => T("LiteDrops is already running (check the system tray).",
         "LiteDrops はすでに起動しています（タスクトレイを確認してください）。");

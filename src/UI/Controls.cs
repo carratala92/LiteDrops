@@ -51,6 +51,38 @@ sealed class CardPanel : Panel
     }
 }
 
+/// <summary>Round button with a gear glyph, opening the settings.</summary>
+sealed class GearButton : Control
+{
+    bool _hover;
+
+    public GearButton()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer | ControlStyles.UserPaint, true);
+        BackColor = Theme.Background;
+        Cursor = Cursors.Hand;
+        Size = new Size(34, 34);
+        // Segoe MDL2 Assets ships with Windows 10 and 11; E713 is "Settings"
+        Font = new Font("Segoe MDL2 Assets", 12f);
+    }
+
+    protected override void OnMouseEnter(EventArgs e) { _hover = true; Invalidate(); base.OnMouseEnter(e); }
+    protected override void OnMouseLeave(EventArgs e) { _hover = false; Invalidate(); base.OnMouseLeave(e); }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        Theme.Smooth(g);
+        var r = new RectangleF(0.5f, 0.5f, Width - 1.5f, Height - 1.5f);
+        using (var bg = new SolidBrush(_hover ? Theme.Track : Theme.Card))
+            g.FillEllipse(bg, r);
+        using (var pen = new Pen(Theme.CardBorder))
+            g.DrawEllipse(pen, r);
+        TextRenderer.DrawText(g, "", Font, ClientRectangle, _hover ? Theme.Text : Theme.SubText,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+    }
+}
+
 /// <summary>"● Mining" style status badge.</summary>
 sealed class StatusPill : Control
 {

@@ -14,8 +14,8 @@
 - **選んだゲームだけ**：チェックを入れたゲームを上から順に掘ります
 - **ドラッグで並べ替え**：左のつまみ（⋮⋮）をドラッグして優先順位を変更、× で削除（削除は「元に戻す」で取り消せます）
 - **ゲーム検索**：ゲーム名を入力すると Twitch 上の正式名が候補に出るので、選ぶだけで追加できます
-- **日本語 / 英語 UI**：Windows の表示言語に合わせて自動で切り替わります（トレイメニューから変更も可）
-- **Windows 起動時に開始**：トレイメニューから設定でき、起動時はトレイに入った状態で採掘を始めます
+- **日本語 / 英語 UI**：Windows の表示言語に合わせて自動で切り替わります（⚙ 設定から変更も可）
+- **Windows 起動時に開始**：⚙ 設定でオンにすると、PC の起動時にトレイに入った状態で採掘を始めます
 - **自動で受け取り**：完了したドロップは自動で受け取ります（Claim）
 - **映像はダウンロードしない**：配信のプレイリストだけを取得して視聴扱いにするので、通信量はごくわずかです
 - **ログイン情報は暗号化して保存**：Windows の DPAPI で暗号化するため、他の PC や他のユーザーでは使えません
@@ -42,6 +42,7 @@
 - 上にあるゲームほど優先されます。行をドラッグして並べ替え、× で削除できます
 - キーボード操作：Alt+↑/↓ で移動、Delete で削除、Space でオン/オフ
 - 視聴中のチャンネル名をクリックすると、その配信をブラウザで開きます
+- 右上の ⚙ から設定を開けます（Windows 起動時に開始・閉じたらトレイに格納・言語）
 - ウィンドウを閉じるとトレイに格納されます。終了するときは、トレイアイコンを右クリックして「終了」を選びます
 - 設定（`litedrops.json`）とログ（`litedrops.log`）は exe と同じフォルダに作られます
 
@@ -59,8 +60,8 @@
 - **Only your games**: checked games are mined top to bottom
 - **Drag & drop priority**: drag the ⋮⋮ handle to reorder, × to remove (with undo)
 - **Game search**: type a name and pick Twitch's exact spelling from the suggestions
-- **English / Japanese UI**, following the Windows display language (changeable from the tray menu)
-- **Start with Windows** option in the tray menu (starts minimized to the tray)
+- **English / Japanese UI**, following the Windows display language (changeable in ⚙ Settings)
+- **Start with Windows** option in ⚙ Settings (starts minimized to the tray)
 - **Auto-claim** of finished drops
 - **No video download**: only stream playlists are fetched, so bandwidth use is minimal
 - **Encrypted login**: the token is protected with Windows DPAPI
@@ -81,7 +82,7 @@ Both behave the same and use about the same memory.
 2. Click **Log in with Twitch**, then enter the shown code on the Twitch activation page
 3. Add games with the search box (pick a suggestion), then leave it running
 
-Drag rows to change the priority (top = first). Keyboard: Alt+↑/↓ to move, Delete to remove, Space to toggle. Click the channel name to open the stream. Closing the window keeps LiteDrops in the tray; use **Exit** from the tray menu to quit.
+Drag rows to change the priority (top = first). Keyboard: Alt+↑/↓ to move, Delete to remove, Space to toggle. Click the channel name to open the stream. The ⚙ button opens the settings (start with Windows, close to tray, language). Closing the window keeps LiteDrops in the tray; use **Exit** from the tray menu to quit.
 
 ### Notes
 - Campaigns are discovered through live, drops-enabled channels of your games
