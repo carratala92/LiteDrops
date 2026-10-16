@@ -22,6 +22,10 @@ public static class UpdateChecker
         }
     }
 
+    /// <summary>True when <paramref name="latest"/> ("1.5.0" or "v1.5.0") is newer than <paramref name="current"/>.</summary>
+    internal static bool IsNewer(string latest, string current) =>
+        Version.TryParse(latest.TrimStart('v'), out var l) && Version.TryParse(current.TrimStart('v'), out var c) && l > c;
+
     public static async Task<UpdateInfo?> CheckAsync(CancellationToken ct)
     {
         try
@@ -34,10 +38,7 @@ public static class UpdateChecker
             var tag = ((string?)json?["tag_name"])?.TrimStart('v');
             var url = (string?)json?["html_url"];
             if (tag is null || url is null) return null;
-            return Version.TryParse(tag, out var latest) && Version.TryParse(CurrentVersion, out var current)
-                   && latest > current
-                ? new UpdateInfo(tag, url)
-                : null;
+            return IsNewer(tag, CurrentVersion) ? new UpdateInfo(tag, url) : null;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
         {

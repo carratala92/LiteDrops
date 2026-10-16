@@ -18,12 +18,12 @@ jobs:
           dotnet-version: "10.0.x"
 
       - name: Publish (uses the installed .NET runtime)
-        run: dotnet publish -c Release -o publish
+        run: dotnet publish LiteDrops.csproj -c Release -o publish
 
       # Not compressed on purpose: a compressed single-file exe unpacks itself
       # into memory and uses ~45 MB more RAM. The zip keeps the download small.
       - name: Publish standalone (runtime included)
-        run: dotnet publish -c Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -o standalone
+        run: dotnet publish LiteDrops.csproj -c Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -o standalone
 
       - name: Package standalone
         shell: pwsh

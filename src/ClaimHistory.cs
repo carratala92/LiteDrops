@@ -56,6 +56,16 @@ public sealed partial class ClaimHistory
     [GeneratedRegex(@"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) INFO\s+Claimed: (.+?) / (.+)$")]
     private static partial Regex ClaimLine();
 
+    /// <summary>Reads a "Claimed: game / drop" line written by <see cref="Log"/>, null for other lines.</summary>
+    internal static ClaimRecord? ParseLogLine(string line)
+    {
+        var m = ClaimLine().Match(line.TrimEnd());
+        if (!m.Success) return null;
+        var local = DateTime.ParseExact(m.Groups[1].Value, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+        return new ClaimRecord(m.Groups[2].Value, "", m.Groups[3].Value.Trim(),
+            DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime());
+    }
+
     static List<ClaimRecord> ImportFromLog()
     {
         var records = new List<ClaimRecord>();
@@ -67,11 +77,7 @@ public sealed partial class ClaimHistory
             {
                 foreach (var line in File.ReadLines(path))
                 {
-                    var m = ClaimLine().Match(line.TrimEnd());
-                    if (!m.Success) continue;
-                    var local = DateTime.ParseExact(m.Groups[1].Value, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-                    records.Add(new ClaimRecord(m.Groups[2].Value, "", m.Groups[3].Value.Trim(),
-                        DateTime.SpecifyKind(local, DateTimeKind.Local).ToUniversalTime()));
+                    if (ParseLogLine(line) is { } record) records.Add(record);
                 }
             }
             catch (IOException) { }

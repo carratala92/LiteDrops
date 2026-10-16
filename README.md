@@ -101,9 +101,15 @@ Drag rows to change the priority (top = first). Keyboard: Alt+↑/↓ to move, D
 
 ## Build
 
+[![Build](https://github.com/naoki6310/LiteDrops/actions/workflows/build.yml/badge.svg)](https://github.com/naoki6310/LiteDrops/actions/workflows/build.yml)
+
+Requires the .NET 10 SDK.
+
 ```
-dotnet publish -c Release -o publish
-dotnet publish -c Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -o standalone
+dotnet build -c Release
+dotnet test -c Release
+dotnet publish LiteDrops.csproj -c Release -o publish
+dotnet publish LiteDrops.csproj -c Release --self-contained true -p:IncludeNativeLibrariesForSelfExtract=true -o standalone
 ```
 
 ## License

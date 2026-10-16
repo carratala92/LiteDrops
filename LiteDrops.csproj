@@ -30,7 +30,13 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <DebugType>embedded</DebugType>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- the test project lives below this folder; keep its files out of the app -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**;tools/**</DefaultItemExcludes>
   </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LiteDrops.Tests" />
+  </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="assets\app.ico" LogicalName="app.ico" />
