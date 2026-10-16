@@ -62,6 +62,17 @@ public static class Gql
             },
         });
 
+    /// <summary>
+    /// Reward kinds (item, badge, emote) of the campaigns on a channel. AvailableDrops leaves
+    /// distributionType out, so this small non-persisted query fills it in.
+    /// </summary>
+    public static JsonObject RewardTypes(string channelId) => new()
+    {
+        ["query"] = "query($channelID: ID!) { channel(id: $channelID) { id viewerDropCampaigns { id " +
+                    "timeBasedDrops { id benefitEdges { benefit { id distributionType } } } } } }",
+        ["variables"] = new JsonObject { ["channelID"] = channelId },
+    };
+
     public static JsonObject PlaybackAccessToken(string login) => Persisted(
         "PlaybackAccessToken", "ed230aa1e33e07eebb8928504583da78a5173989fadfb1ac94be06a04f3cdbe9",
         new()

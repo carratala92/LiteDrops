@@ -446,6 +446,7 @@ sealed class MainForm : Form
         // not modal: the main window stays usable while the settings are open
         Log.Info("Settings opened");
         var dialog = new SettingsDialog(_settings);
+        dialog.MiningSettingsChanged += () => _miner?.Wake();
         dialog.FormClosed += (_, e) =>
         {
             Log.Info($"Settings closed ({e.CloseReason})");

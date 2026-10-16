@@ -141,13 +141,54 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             }
         }
 
+        await FillRewardTypesAsync(campaigns.Values.Where(c => nameById.ContainsKey(c.GameId)), ct);
+
         var now = DateTime.UtcNow;
         _campaigns = campaigns.Values
             .Where(c => nameById.ContainsKey(c.GameId) && c.EndAt > now)
             .OrderBy(c => wantedGames.FindIndex(g => g.Id == c.GameId))
+            .ThenBy(c => c.BadgeOrEmoteOnly) // in-game items first, chat badges / emotes last
             .ThenBy(c => c.EndAt)
             .ToList();
-        Log.Info($"Found {_campaigns.Count} campaign(s), {_campaigns.Count(c => c.CanEarn(now))} earnable");
+        Log.Info($"Found {_campaigns.Count} campaign(s), {_campaigns.Count(c => Wanted(c, now))} earnable, " +
+                 $"{_campaigns.Count(c => c.BadgeOrEmoteOnly)} badge/emote only");
+    }
+
+    bool Wanted(Campaign c, DateTime now) => c.CanEarn(now) && (settings.MineBadges || !c.BadgeOrEmoteOnly);
+
+    /// <summary>
+    /// AvailableDrops doesn't say whether a reward is an in-game item or a chat badge / emote.
+    /// Ask one live channel per campaign; on failure the types stay unknown (treated as items).
+    /// </summary>
+    async Task FillRewardTypesAsync(IEnumerable<Campaign> campaigns, CancellationToken ct)
+    {
+        var missing = campaigns.Where(c => c.Channels.Count > 0 && c.Drops.All(d => d.RewardTypes.Count == 0)).ToList();
+        if (missing.Count == 0) return;
+        var channelIds = missing.Select(c => c.Channels[0].Id).Distinct().ToList();
+        var dropsById = missing.SelectMany(c => c.Drops).GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First());
+        try
+        {
+            foreach (var batch in channelIds.Chunk(20))
+            {
+                var results = await api.GqlBatchAsync(batch.Select(Gql.RewardTypes).ToList(), ct);
+                foreach (var result in results)
+                {
+                    foreach (var c in result["data"]?["channel"]?["viewerDropCampaigns"] as JsonArray ?? [])
+                    foreach (var d in c?["timeBasedDrops"] as JsonArray ?? [])
+                    {
+                        if ((string?)d?["id"] is not { } dropId || !dropsById.TryGetValue(dropId, out var drop)) continue;
+                        drop.RewardTypes.Clear();
+                        drop.RewardTypes.AddRange((d!["benefitEdges"] as JsonArray ?? [])
+                            .Select(e => (string?)e?["benefit"]?["distributionType"])
+                            .OfType<string>());
+                    }
+                }
+            }
+        }
+        catch (TwitchApiException ex)
+        {
+            Log.Warn($"Reward types unavailable: {ex.Message}");
+        }
     }
 
     Campaign ParseCampaign(JsonNode c, IReadOnlyDictionary<string, DateTime> claimed, bool inInventory, string? gameName = null)
@@ -217,7 +258,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
         var now = DateTime.UtcNow;
         foreach (var key in _badChannels.Where(kv => kv.Value < now).Select(kv => kv.Key).ToList())
             _badChannels.Remove(key);
-        foreach (var campaign in _campaigns.Where(c => c.CanEarn(now)))
+        foreach (var campaign in _campaigns.Where(c => Wanted(c, now)))
         {
             var channel = campaign.Channels.FirstOrDefault(ch => !_badChannels.ContainsKey(ch.Id));
             if (channel is not null) return (campaign, channel);
@@ -322,7 +363,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     {
         var now = DateTime.UtcNow;
         var rows = _campaigns
-            .Select(c => new CampaignRow(c.GameName, c.Name, c.Progress, c.CanEarn(now)))
+            .Select(c => new CampaignRow(c.GameName, c.Name, c.Progress, Wanted(c, now)))
             .ToList();
         _snapshot = new MinerSnapshot(status, text, watching, rows);
         Changed?.Invoke(_snapshot);

@@ -91,6 +91,9 @@ static class L
     public static string CloseToTrayDesc => T("The × button keeps LiteDrops running in the tray", "× で閉じても、トレイで動き続けます");
     public static string LanguageDesc => T("Restarts the app", "変更するとアプリが再起動します");
     public static string Done => T("Done", "完了");
+    public static string MineBadges => T("Mine badges & emotes", "バッジ・エモートも掘る");
+    public static string MineBadgesDesc => T("Off: only campaigns with in-game items",
+        "オフにすると、ゲーム内アイテムがもらえるキャンペーンだけを掘ります");
     public static string DropClaimed => T("Drop claimed", "ドロップを受け取りました");
     public static string AlreadyRunning => T("LiteDrops is already running (check the system tray).",
         "LiteDrops はすでに起動しています（タスクトレイを確認してください）。");

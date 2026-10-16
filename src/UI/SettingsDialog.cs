@@ -12,10 +12,14 @@ sealed class SettingsDialog : Form
     readonly AppSettings _settings;
     readonly ToggleSwitch _autostart = new();
     readonly ToggleSwitch _closeToTray = new();
+    readonly ToggleSwitch _mineBadges = new();
     readonly SegmentedControl _language = new(["auto", "en", "ja"], [L.LanguageAutoShort, "English", "日本語"]);
 
     /// <summary>The language picked in the dialog, applied by the caller (it needs a restart).</summary>
     public string Language => _language.Value;
+
+    /// <summary>Raised when a setting the miner uses has changed.</summary>
+    public event Action? MiningSettingsChanged;
 
     public SettingsDialog(AppSettings settings)
     {
@@ -29,7 +33,7 @@ sealed class SettingsDialog : Form
         KeyPreview = true;
         BackColor = Theme.Card;
         ForeColor = Theme.Text;
-        ClientSize = new Size(420, 440);
+        ClientSize = new Size(420, 526);
         Text = L.Settings;
         DoubleBuffered = true;
 
@@ -57,18 +61,27 @@ sealed class SettingsDialog : Form
             _settings.CloseToTray = _closeToTray.Checked;
             _settings.Save();
         };
+        _mineBadges.Checked = settings.MineBadges;
+        _mineBadges.CheckedChanged += (_, _) =>
+        {
+            _settings.MineBadges = _mineBadges.Checked;
+            _settings.Save();
+            MiningSettingsChanged?.Invoke();
+        };
         _language.Value = settings.Language;
         AddRow(57, L.StartWithWindows, L.StartWithWindowsDesc, _autostart);
         Controls.Add(Divider(22, 142, 376));
         AddRow(143, L.CloseToTray, L.CloseToTrayDesc, _closeToTray);
         Controls.Add(Divider(22, 228, 376));
-        AddRow(229, L.Language, L.LanguageDesc, _language);
-        Controls.Add(Divider(0, 314, 420));
+        AddRow(229, L.MineBadges, L.MineBadgesDesc, _mineBadges);
+        Controls.Add(Divider(22, 314, 376));
+        AddRow(315, L.Language, L.LanguageDesc, _language);
+        Controls.Add(Divider(0, 400, 420));
 
         var version = new Label
         {
             Text = $"LiteDrops v{AppVersion}", Font = Theme.Small, ForeColor = Theme.SubText, AutoSize = true,
-            Location = new Point(22, 330), BackColor = Theme.Card,
+            Location = new Point(22, 416), BackColor = Theme.Card,
         };
         var github = new LinkLabel
         {
@@ -79,7 +92,7 @@ sealed class SettingsDialog : Form
         github.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(RepoUrl) { UseShellExecute = true });
         var done = new AccentButton
         {
-            Text = L.Done, Bounds = new Rectangle(298, 378, 100, 40), BackColor = Theme.Card,
+            Text = L.Done, Bounds = new Rectangle(298, 464, 100, 40), BackColor = Theme.Card,
         };
         done.Click += (_, _) => Close();
 

@@ -12,6 +12,8 @@ public sealed class Drop
     public required DateTime StartAt { get; init; }
     public required DateTime EndAt { get; init; }
     public IReadOnlyList<string> BenefitIds { get; init; } = [];
+    /// <summary>Reward kinds ("DIRECT_ENTITLEMENT", "BADGE", "EMOTE", ...), empty when unknown.</summary>
+    public List<string> RewardTypes { get; init; } = [];
     public IReadOnlyList<string> PreconditionIds { get; init; } = [];
     public int CurrentMinutes { get; set; }
     public bool IsClaimed { get; set; }
@@ -34,6 +36,10 @@ public sealed class Drop
             StartAt = ParseTime(node["startAt"]),
             EndAt = ParseTime(node["endAt"]),
             BenefitIds = benefitIds,
+            RewardTypes = (node["benefitEdges"] as JsonArray ?? [])
+                .Select(e => (string?)e?["benefit"]?["distributionType"])
+                .OfType<string>()
+                .ToList(),
             PreconditionIds = (node["preconditionDrops"] as JsonArray ?? [])
                 .Select(p => (string?)p?["id"]).OfType<string>().ToList(),
         };
@@ -76,6 +82,19 @@ public sealed class Campaign
                     && d.PreconditionIds.All(p => Drops.FirstOrDefault(x => x.Id == p) is not { IsComplete: false }))
         .OrderBy(d => d.RequiredMinutes - d.CurrentMinutes)
         .FirstOrDefault();
+
+    /// <summary>
+    /// True when every reward is a Twitch chat badge or emote, i.e. there's no in-game item.
+    /// Unknown reward types count as items, so nothing gets skipped by mistake.
+    /// </summary>
+    public bool BadgeOrEmoteOnly
+    {
+        get
+        {
+            var types = Drops.SelectMany(d => d.RewardTypes).ToList();
+            return types.Count > 0 && types.All(t => t is "BADGE" or "EMOTE");
+        }
+    }
 
     public bool CanEarn(DateTime now) => AccountLinked != false && now < EndAt && NextDrop(now) is not null;
 
