@@ -63,12 +63,13 @@ public static class Gql
         });
 
     /// <summary>
-    /// Reward kinds (item, badge, emote) of the campaigns on a channel. AvailableDrops leaves
-    /// distributionType out, so this small non-persisted query fills it in.
+    /// Details AvailableDrops leaves out for the campaigns on a channel: the reward kinds
+    /// (item, badge, emote) and, optionally, whether the game account is linked.
     /// </summary>
-    public static JsonObject RewardTypes(string channelId) => new()
+    public static JsonObject CampaignDetails(string channelId, bool withAccountLink) => new()
     {
         ["query"] = "query($channelID: ID!) { channel(id: $channelID) { id viewerDropCampaigns { id " +
+                    (withAccountLink ? "accountLinkURL self { isAccountConnected } " : "") +
                     "timeBasedDrops { id benefitEdges { benefit { id distributionType } } } } } }",
         ["variables"] = new JsonObject { ["channelID"] = channelId },
     };

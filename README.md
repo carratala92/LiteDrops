@@ -17,7 +17,10 @@
 - **日本語 / 英語 UI**：Windows の表示言語に合わせて自動で切り替わります（⚙ 設定から変更も可）
 - **Windows 起動時に開始**：⚙ 設定でオンにすると、PC の起動時にトレイに入った状態で採掘を始めます
 - **アイテム優先**：ゲーム内アイテムがもらえるキャンペーンを、チャットバッジ・エモートだけのものより先に掘ります（⚙ 設定でバッジ・エモートを除外することも可）
-- **自動で受け取り**：完了したドロップは自動で受け取ります（Claim）
+- **アカウント連携チェック**：ゲームアカウントが未連携のキャンペーンは飛ばし、「アカウント連携 ›」から連携ページを開けます
+- **自動で受け取り**：完了したドロップは自動で受け取ります（Claim）。受け取ったものは「履歴」で一覧できます
+- **上位ゲームへすぐ戻る**：下位のゲームを視聴中に上位のゲームの配信が始まると、約 10 分以内に切り替えます
+- **アップデート通知**：新しいバージョンが出ると画面下に表示します（1 日 2 回 GitHub に確認）
 - **映像はダウンロードしない**：配信のプレイリストだけを取得して視聴扱いにするので、通信量はごくわずかです
 - **ログイン情報は暗号化して保存**：Windows の DPAPI で暗号化するため、他の PC や他のユーザーでは使えません
 
@@ -45,7 +48,7 @@
 - 視聴中のチャンネル名をクリックすると、その配信をブラウザで開きます
 - 右上の ⚙ から設定を開けます（Windows 起動時に開始・閉じたらトレイに格納・バッジ・エモートも掘る・言語）
 - ウィンドウを閉じるとトレイに格納されます。終了するときは、トレイアイコンを右クリックして「終了」を選びます
-- 設定（`litedrops.json`）とログ（`litedrops.log`）は exe と同じフォルダに作られます
+- 設定（`litedrops.json`）・受け取り履歴（`litedrops-history.json`）・ログ（`litedrops.log`）は exe と同じフォルダに作られます
 
 ### 注意
 - キャンペーンは、Drops が有効な配信中のチャンネルを探して見つけます。配信者がいないキャンペーンは見つかりません
@@ -64,7 +67,10 @@
 - **English / Japanese UI**, following the Windows display language (changeable in ⚙ Settings)
 - **Start with Windows** option in ⚙ Settings (starts minimized to the tray)
 - **Items first**: campaigns with in-game rewards are mined before chat badge / emote only ones (which can be turned off in ⚙ Settings)
-- **Auto-claim** of finished drops
+- **Account link check**: campaigns whose game account isn't linked are skipped, with a "Link account ›" shortcut
+- **Auto-claim** of finished drops, with a claim **History**
+- **Back to your top game quickly**: switches within ~10 minutes when a higher-priority game goes live
+- **Update notice** at the bottom when a new version is out (checks GitHub twice a day)
 - **No video download**: only stream playlists are fetched, so bandwidth use is minimal
 - **Encrypted login**: the token is protected with Windows DPAPI
 

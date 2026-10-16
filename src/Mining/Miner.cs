@@ -14,6 +14,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     static readonly TimeSpan ProgressCheckInterval = TimeSpan.FromMinutes(1);
     static readonly TimeSpan NoProgressTimeout = TimeSpan.FromMinutes(7);
     static readonly TimeSpan RefreshInterval = TimeSpan.FromMinutes(30);
+    static readonly TimeSpan PriorityCheckInterval = TimeSpan.FromMinutes(10);
     static readonly TimeSpan IdleRetry = TimeSpan.FromMinutes(5);
     static readonly TimeSpan BadChannelCooldown = TimeSpan.FromMinutes(30);
     const int StreamsPerGame = 30;
@@ -21,11 +22,14 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     readonly Dictionary<string, (string Id, string Slug)?> _gameCache = new(StringComparer.OrdinalIgnoreCase);
     readonly Dictionary<string, DateTime> _badChannels = [];
     List<Campaign> _campaigns = [];
+    List<(string Name, string Id, string Slug)> _wantedGames = [];
+    HashSet<string> _liveGameIds = [];
+    bool _accountLinkQuery = true; // switched off if Twitch rejects that part of the query
     CancellationTokenSource _wake = new();
     MinerSnapshot _snapshot = new(MinerStatus.Starting, "Starting…", null, []);
 
     public event Action<MinerSnapshot>? Changed;
-    public event Action<string, string>? Claimed; // game, drop
+    public event Action<string, string, string>? Claimed; // game, campaign, drop
     public MinerSnapshot Snapshot => _snapshot;
 
     /// <summary>Interrupts waiting/watching so the game selection is re-read right away.</summary>
@@ -107,6 +111,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
         await ClaimFinishedAsync(campaigns.Values, ct);
 
         // discover campaigns through live, drops-enabled channels of the selected games
+        var liveGameIds = new HashSet<string>();
         foreach (var (gameName, gameId, slug) in wantedGames)
         {
             var streams = await api.GqlAsync(Gql.DropsStreams(slug, StreamsPerGame), ct);
@@ -119,6 +124,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
                     (string?)n["broadcaster"]!["displayName"] ?? (string)n["broadcaster"]!["login"]!,
                     (int?)n["viewersCount"] ?? 0))
                 .ToList();
+            if (channels.Count > 0) liveGameIds.Add(gameId);
             foreach (var batch in channels.Chunk(20))
             {
                 var results = await api.GqlBatchAsync(batch.Select(ch => Gql.AvailableDrops(ch.Id)).ToList(), ct);
@@ -141,7 +147,9 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             }
         }
 
-        await FillRewardTypesAsync(campaigns.Values.Where(c => nameById.ContainsKey(c.GameId)), ct);
+        await FillCampaignDetailsAsync(campaigns.Values.Where(c => nameById.ContainsKey(c.GameId)), ct);
+        _wantedGames = wantedGames;
+        _liveGameIds = liveGameIds;
 
         var now = DateTime.UtcNow;
         _campaigns = campaigns.Values
@@ -151,44 +159,88 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             .ThenBy(c => c.EndAt)
             .ToList();
         Log.Info($"Found {_campaigns.Count} campaign(s), {_campaigns.Count(c => Wanted(c, now))} earnable, " +
-                 $"{_campaigns.Count(c => c.BadgeOrEmoteOnly)} badge/emote only");
+                 $"{_campaigns.Count(c => c.BadgeOrEmoteOnly)} badge/emote only, " +
+                 $"{_campaigns.Count(c => c.AccountLinked == false)} not linked");
     }
 
     bool Wanted(Campaign c, DateTime now) => c.CanEarn(now) && (settings.MineBadges || !c.BadgeOrEmoteOnly);
 
     /// <summary>
-    /// AvailableDrops doesn't say whether a reward is an in-game item or a chat badge / emote.
-    /// Ask one live channel per campaign; on failure the types stay unknown (treated as items).
+    /// AvailableDrops doesn't say whether a reward is an in-game item or a chat badge / emote,
+    /// nor whether the game account is linked. Ask one live channel per campaign; whatever
+    /// can't be learned stays unknown (rewards count as items, the account as linked).
     /// </summary>
-    async Task FillRewardTypesAsync(IEnumerable<Campaign> campaigns, CancellationToken ct)
+    async Task FillCampaignDetailsAsync(IEnumerable<Campaign> campaigns, CancellationToken ct)
     {
-        var missing = campaigns.Where(c => c.Channels.Count > 0 && c.Drops.All(d => d.RewardTypes.Count == 0)).ToList();
-        if (missing.Count == 0) return;
-        var channelIds = missing.Select(c => c.Channels[0].Id).Distinct().ToList();
-        var dropsById = missing.SelectMany(c => c.Drops).GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First());
+        var targets = campaigns
+            .Where(c => c.Channels.Count > 0
+                        && (!c.InInventory || c.Drops.All(d => d.RewardTypes.Count == 0)))
+            .ToList();
+        if (targets.Count == 0) return;
+        var byId = targets.ToDictionary(c => c.Id);
+        var dropsById = targets.SelectMany(c => c.Drops).GroupBy(d => d.Id).ToDictionary(g => g.Key, g => g.First());
+        var channelIds = targets.Select(c => c.Channels[0].Id).Distinct().ToList();
         try
         {
             foreach (var batch in channelIds.Chunk(20))
             {
-                var results = await api.GqlBatchAsync(batch.Select(Gql.RewardTypes).ToList(), ct);
+                var results = await api.GqlBatchAsync(
+                    batch.Select(id => Gql.CampaignDetails(id, _accountLinkQuery)).ToList(), ct);
+                if (_accountLinkQuery && results.Any(r => r["data"]?["channel"] is null && r["errors"] is JsonArray))
+                {
+                    // Twitch refused the account link fields for this client; keep the reward types
+                    Log.Warn($"Account link status unavailable: {(string?)results[0]["errors"]?[0]?["message"]}");
+                    _accountLinkQuery = false;
+                    results = await api.GqlBatchAsync(batch.Select(id => Gql.CampaignDetails(id, false)).ToList(), ct);
+                }
                 foreach (var result in results)
                 {
                     foreach (var c in result["data"]?["channel"]?["viewerDropCampaigns"] as JsonArray ?? [])
-                    foreach (var d in c?["timeBasedDrops"] as JsonArray ?? [])
                     {
-                        if ((string?)d?["id"] is not { } dropId || !dropsById.TryGetValue(dropId, out var drop)) continue;
-                        drop.RewardTypes.Clear();
-                        drop.RewardTypes.AddRange((d!["benefitEdges"] as JsonArray ?? [])
-                            .Select(e => (string?)e?["benefit"]?["distributionType"])
-                            .OfType<string>());
+                        if ((string?)c?["id"] is { } campaignId && byId.TryGetValue(campaignId, out var campaign))
+                        {
+                            if ((bool?)c["self"]?["isAccountConnected"] is { } linked) campaign.AccountLinked = linked;
+                            if ((string?)c["accountLinkURL"] is { Length: > 0 } url) campaign.LinkUrl = url;
+                        }
+                        foreach (var d in c?["timeBasedDrops"] as JsonArray ?? [])
+                        {
+                            if ((string?)d?["id"] is not { } dropId || !dropsById.TryGetValue(dropId, out var drop)) continue;
+                            var types = (d!["benefitEdges"] as JsonArray ?? [])
+                                .Select(e => (string?)e?["benefit"]?["distributionType"])
+                                .OfType<string>()
+                                .ToList();
+                            if (types.Count == 0) continue;
+                            drop.RewardTypes.Clear();
+                            drop.RewardTypes.AddRange(types);
+                        }
                     }
                 }
             }
         }
         catch (TwitchApiException ex)
         {
-            Log.Warn($"Reward types unavailable: {ex.Message}");
+            Log.Warn($"Campaign details unavailable: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// True when a game higher in the list than <paramref name="gameId"/> now has live drop
+    /// streams but had none at the last refresh, so it's worth switching back to it.
+    /// </summary>
+    async Task<bool> HigherPriorityGameWentLiveAsync(string gameId, CancellationToken ct)
+    {
+        var index = _wantedGames.FindIndex(g => g.Id == gameId);
+        foreach (var game in _wantedGames.Take(Math.Max(0, index)))
+        {
+            if (_liveGameIds.Contains(game.Id)) continue;
+            var streams = await api.GqlAsync(Gql.DropsStreams(game.Slug, 1), ct);
+            if (streams["data"]?["game"]?["streams"]?["edges"] is JsonArray { Count: > 0 })
+            {
+                Log.Info($"{game.Name} has live drops now, switching back to it");
+                return true;
+            }
+        }
+        return false;
     }
 
     Campaign ParseCampaign(JsonNode c, IReadOnlyDictionary<string, DateTime> claimed, bool inInventory, string? gameName = null)
@@ -214,6 +266,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             EndAt = Drop.ParseTime(c["endAt"]),
             Drops = drops,
             AccountLinked = linked,
+            LinkUrl = (string?)c["accountLinkURL"],
             InInventory = inInventory,
         };
     }
@@ -242,7 +295,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
                 {
                     drop.IsClaimed = true;
                     Log.Info($"Claimed: {campaign.GameName} / {drop.Name}");
-                    Claimed?.Invoke(campaign.GameName, drop.Name);
+                    Claimed?.Invoke(campaign.GameName, campaign.Name, drop.Name);
                 }
                 else
                 {
@@ -279,6 +332,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
         var lastProgressAt = started;
         var nextCheck = started + ProgressCheckInterval;
         var lastMinutes = drop.CurrentMinutes;
+        var nextPriorityCheck = started + PriorityCheckInterval;
         var failures = 0;
 
         while (true)
@@ -331,6 +385,11 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
                 }
             }
             if (now - started > RefreshInterval) return;
+            if (now >= nextPriorityCheck)
+            {
+                nextPriorityCheck = now + PriorityCheckInterval;
+                if (await HigherPriorityGameWentLiveAsync(campaign.GameId, ct)) return;
+            }
             if (!await WaitAsync(WatchInterval, ct)) return; // woken up: selection changed
         }
     }
@@ -363,7 +422,8 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     {
         var now = DateTime.UtcNow;
         var rows = _campaigns
-            .Select(c => new CampaignRow(c.GameName, c.Name, c.Progress, Wanted(c, now)))
+            .Select(c => new CampaignRow(c.GameName, c.Name, c.Progress, Wanted(c, now),
+                c.AccountLinked == false, c.LinkUrl))
             .ToList();
         _snapshot = new MinerSnapshot(status, text, watching, rows);
         Changed?.Invoke(_snapshot);

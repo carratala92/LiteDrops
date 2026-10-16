@@ -63,6 +63,11 @@ sealed class MainForm : Form
     readonly Label _ram = MakeLabel(Theme.Body, Theme.SubText, ContentAlignment.MiddleRight);
 
     readonly NotifyIcon _tray;
+    readonly ClaimHistory _history = ClaimHistory.Load();
+    readonly TextLink _historyLink = new() { BackColor = Theme.Card, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+    readonly PillLink _updatePill = new() { Visible = false, Font = Theme.Small, BackColor = Theme.Background };
+    readonly System.Windows.Forms.Timer _updateTimer = new() { Interval = 15_000 };
+    string? _updateUrl;
     readonly ToolTip _tips = new();
     readonly System.Windows.Forms.Timer _statsTimer = new() { Interval = 3000 };
 
@@ -118,6 +123,8 @@ sealed class MainForm : Form
         _tray.BalloonTipClicked += (_, _) => ShowFromTray();
 
         _statsTimer.Tick += (_, _) => UpdateStats();
+        _updateTimer.Tick += async (_, _) => await CheckForUpdateAsync();
+        _updateTimer.Start();
         _statsTimer.Start();
         SetStatus(L.Starting, Theme.Accent);
     }
@@ -268,7 +275,12 @@ sealed class MainForm : Form
         _campaignList.Dock = DockStyle.Fill;
         _campaignEmpty.Dock = DockStyle.Fill;
         _campaignEmpty.Text = L.NoCampaigns;
-        _campaignCard.Controls.AddRange([_campaignList, _campaignEmpty]);
+        _campaignList.LinkClicked += url => OpenUrl(url ?? "https://www.twitch.tv/drops/campaigns");
+        _historyLink.Text = L.History;
+        _historyLink.Click += (_, _) => OpenHistory();
+        _campaignCard.Resize += (_, _) =>
+            _historyLink.Location = new Point(_campaignCard.Width - _historyLink.Width - 16, 13);
+        _campaignCard.Controls.AddRange([_campaignList, _campaignEmpty, _historyLink]);
         UpdateCampaignEmpty();
     }
 
@@ -280,10 +292,15 @@ sealed class MainForm : Form
         _logout.Text = L.LogOut;
         _logout.Location = new Point(230, 13);
         _logout.LinkClicked += (_, _) => Logout();
-        _ram.SetBounds(300, 10, 150, 24);
+        _ram.SetBounds(360, 10, 90, 24);
         _ram.Anchor = AnchorStyles.Top | AnchorStyles.Right;
-        footer.Controls.AddRange([_logout, _user, _ram]);
-        footer.Resize += (_, _) => _ram.Left = footer.ClientSize.Width - _ram.Width;
+        _updatePill.Click += (_, _) => { if (_updateUrl is not null) OpenUrl(_updateUrl); };
+        footer.Controls.AddRange([_logout, _user, _ram, _updatePill]);
+        footer.Resize += (_, _) =>
+        {
+            _ram.Left = footer.ClientSize.Width - _ram.Width;
+            _updatePill.Location = new Point(_ram.Left - _updatePill.Width - 6, (footer.ClientSize.Height - _updatePill.Height) / 2);
+        };
         return footer;
     }
 
@@ -453,9 +470,31 @@ sealed class MainForm : Form
             ChangeLanguage(dialog.Language);
             dialog.Dispose();
         };
-        var b = Bounds;
-        dialog.Location = new Point(b.X + (b.Width - dialog.Width) / 2, b.Y + Math.Min(120, (b.Height - dialog.Height) / 2));
-        dialog.Show(this);
+        dialog.ShowOver(this);
+    }
+
+    void OpenHistory()
+    {
+        if (OwnedForms.OfType<HistoryDialog>().FirstOrDefault() is { } open)
+        {
+            open.Activate();
+            return;
+        }
+        var dialog = new HistoryDialog(_history);
+        dialog.FormClosed += (_, _) => dialog.Dispose();
+        dialog.ShowOver(this);
+    }
+
+    async Task CheckForUpdateAsync()
+    {
+        _updateTimer.Interval = (int)TimeSpan.FromHours(12).TotalMilliseconds; // first check 15 s after start
+        if (await UpdateChecker.CheckAsync(CancellationToken.None) is not { } update) return;
+        Log.Info($"Update available: v{update.Version}");
+        _updateUrl = update.Url;
+        _updatePill.Text = L.UpdateAvailable(update.Version);
+        _updatePill.Location = new Point(_ram.Left - _updatePill.Width - 6, _updatePill.Parent is { } p
+            ? (p.ClientSize.Height - _updatePill.Height) / 2 : 8);
+        _updatePill.Visible = true;
     }
 
     void ChangeLanguage(string code)
@@ -561,10 +600,15 @@ sealed class MainForm : Form
         {
             if (IsHandleCreated && !_exiting) BeginInvoke(() => { if (_miner == miner) Render(snapshot); });
         };
-        miner.Claimed += (game, drop) =>
+        miner.Claimed += (game, campaign, drop) =>
         {
-            if (IsHandleCreated && !_exiting)
-                BeginInvoke(() => _tray.ShowBalloonTip(5000, L.DropClaimed, $"{game} — {drop}", ToolTipIcon.Info));
+            if (!IsHandleCreated || _exiting) return;
+            BeginInvoke(() =>
+            {
+                _history.Add(game, campaign, drop);
+                OwnedForms.OfType<HistoryDialog>().FirstOrDefault()?.Refresh(_history);
+                _tray.ShowBalloonTip(5000, L.DropClaimed, $"{game} — {drop}", ToolTipIcon.Info);
+            });
         };
         _ = Task.Run(async () =>
         {

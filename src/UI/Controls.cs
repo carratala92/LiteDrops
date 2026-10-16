@@ -173,6 +173,12 @@ sealed class AccentButton : Control
 
 sealed class CampaignListBox : ListBox
 {
+    readonly ToolTip _tip = new();
+    int _tipIndex = -1;
+
+    /// <summary>Raised with the link page when an unlinked campaign is clicked.</summary>
+    public event Action<string?>? LinkClicked;
+
     public CampaignListBox()
     {
         DrawMode = DrawMode.OwnerDrawFixed;
@@ -203,11 +209,48 @@ sealed class CampaignListBox : ListBox
         TextRenderer.DrawText(g, row.CampaignName, Theme.Small, new Rectangle(b.X + gameW, b.Y, nameW - (int)(8 * s), b.Height), Theme.SubText, flags);
         var pctW = (int)(44 * s);
         var barX = b.X + gameW + nameW;
+        if (row.NeedsLink)
+        {
+            // game account not linked: the campaign is skipped, offer the link page instead
+            var tagW = TextRenderer.MeasureText(L.LinkAccount, Theme.Small).Width + 20 * s;
+            var tag = new RectangleF(b.Right - tagW - 2 * s, b.Y + (b.Height - 24 * s) / 2, tagW, 24 * s);
+            PillLink.PaintPill(g, tag, L.LinkAccount, Theme.Small, Theme.Amber, false, s);
+            return;
+        }
         var barW = b.Right - pctW - barX - (int)(6 * s);
         var barH = 8 * s;
         if (barW > 10)
             SlimProgress.PaintBar(g, new RectangleF(barX, b.Y + (b.Height - barH) / 2, barW, barH), row.Progress, s);
         TextRenderer.DrawText(g, $"{row.Progress:0%}", Theme.BodyBold, new Rectangle(b.Right - pctW, b.Y, pctW, b.Height),
             Theme.Accent, TextFormatFlags.VerticalCenter | TextFormatFlags.Right);
+    }
+
+    CampaignRow? RowAt(Point p)
+    {
+        var index = IndexFromPoint(p);
+        return index >= 0 && index < Items.Count && GetItemRectangle(index).Contains(p) ? (CampaignRow)Items[index] : null;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        var index = IndexFromPoint(e.Location);
+        var row = RowAt(e.Location);
+        Cursor = row is { NeedsLink: true } ? Cursors.Hand : Cursors.Default;
+        if (index == _tipIndex) return;
+        _tipIndex = index;
+        _tip.SetToolTip(this, row is { NeedsLink: true } ? L.LinkAccountTip : "");
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        base.OnMouseUp(e);
+        if (e.Button == MouseButtons.Left && RowAt(e.Location) is { NeedsLink: true } row) LinkClicked?.Invoke(row.LinkUrl);
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _tip.Dispose();
+        base.Dispose(disposing);
     }
 }

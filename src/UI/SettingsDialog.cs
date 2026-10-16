@@ -1,11 +1,10 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using System.Reflection;
 
 namespace LiteDrops.UI;
 
-/// <summary>Settings dialog from the Canva mockup: autostart, close to tray and language.</summary>
-sealed class SettingsDialog : Form
+/// <summary>Settings dialog from the Canva mockup: autostart, tray, badges and language.</summary>
+sealed class SettingsDialog : DarkDialog
 {
     const string RepoUrl = "https://github.com/naoki6310/LiteDrops";
 
@@ -21,38 +20,10 @@ sealed class SettingsDialog : Form
     /// <summary>Raised when a setting the miner uses has changed.</summary>
     public event Action? MiningSettingsChanged;
 
-    public SettingsDialog(AppSettings settings)
+    public SettingsDialog(AppSettings settings) : base(L.Settings, new Size(420, 526))
     {
         _settings = settings;
         SuspendLayout();
-        AutoScaleDimensions = new SizeF(96F, 96F);
-        AutoScaleMode = AutoScaleMode.Dpi;
-        FormBorderStyle = FormBorderStyle.None;
-        StartPosition = FormStartPosition.Manual;
-        ShowInTaskbar = false;
-        KeyPreview = true;
-        BackColor = Theme.Card;
-        ForeColor = Theme.Text;
-        ClientSize = new Size(420, 526);
-        Text = L.Settings;
-        DoubleBuffered = true;
-
-        var title = new Label
-        {
-            Text = L.Settings, Font = Theme.Big, ForeColor = Theme.Text, AutoSize = true,
-            Location = new Point(22, 16), BackColor = Theme.Card,
-        };
-        var close = new Label
-        {
-            Text = "×", Font = new Font("Segoe UI", 16f), ForeColor = Theme.SubText, BackColor = Theme.Card,
-            TextAlign = ContentAlignment.MiddleCenter, Bounds = new Rectangle(372, 10, 36, 36), Cursor = Cursors.Hand,
-        };
-        close.MouseEnter += (_, _) => close.ForeColor = Theme.Text;
-        close.MouseLeave += (_, _) => close.ForeColor = Theme.SubText;
-        close.Click += (_, _) => Close();
-        title.MouseDown += (_, e) => DragWindow(e);
-        Controls.AddRange([title, close, Divider(0, 56, 420)]);
-
         _autostart.Checked = AutoStart.IsEnabled;
         _autostart.CheckedChanged += (_, _) => AutoStart.Set(_autostart.Checked);
         _closeToTray.Checked = settings.CloseToTray;
@@ -80,16 +51,11 @@ sealed class SettingsDialog : Form
 
         var version = new Label
         {
-            Text = $"LiteDrops v{AppVersion}", Font = Theme.Small, ForeColor = Theme.SubText, AutoSize = true,
-            Location = new Point(22, 416), BackColor = Theme.Card,
+            Text = $"LiteDrops v{UpdateChecker.CurrentVersion}", Font = Theme.Small, ForeColor = Theme.SubText,
+            AutoSize = true, Location = new Point(22, 416), BackColor = Theme.Card,
         };
-        var github = new LinkLabel
-        {
-            Text = "GitHub", Font = Theme.Small, LinkColor = Theme.Accent, ActiveLinkColor = Theme.AccentDim,
-            AutoSize = true, BackColor = Theme.Card, LinkBehavior = LinkBehavior.AlwaysUnderline,
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-        };
-        github.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(RepoUrl) { UseShellExecute = true });
+        var github = new TextLink { Text = "GitHub", Font = Theme.Small, BackColor = Theme.Card };
+        github.Click += (_, _) => Process.Start(new ProcessStartInfo(RepoUrl) { UseShellExecute = true });
         var done = new AccentButton
         {
             Text = L.Done, Bounds = new Rectangle(298, 464, 100, 40), BackColor = Theme.Card,
@@ -100,22 +66,6 @@ sealed class SettingsDialog : Form
         ResumeLayout(false);
         github.Location = new Point(ClientSize.Width - github.Width - 22, version.Top);
     }
-
-    static string AppVersion
-    {
-        get
-        {
-            var v = typeof(SettingsDialog).Assembly
-                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "?";
-            var plus = v.IndexOf('+');
-            return plus < 0 ? v : v[..plus]; // drop the "+commit" suffix
-        }
-    }
-
-    static Panel Divider(int x, int y, int width) => new()
-    {
-        BackColor = Theme.CardBorder, Bounds = new Rectangle(x, y, width, 1),
-    };
 
     void AddRow(int top, string label, string description, Control control)
     {
@@ -133,56 +83,6 @@ sealed class SettingsDialog : Form
         };
         control.Location = new Point(398 - control.Width, top + (rowH - control.Height) / 2);
         Controls.AddRange([name, desc, control]);
-    }
-
-    protected override void OnKeyDown(KeyEventArgs e)
-    {
-        base.OnKeyDown(e);
-        if (e.KeyCode == Keys.Escape) Close();
-    }
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    static extern bool ReleaseCapture();
-
-    [System.Runtime.InteropServices.DllImport("user32.dll")]
-    static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
-
-    /// <summary>Lets the borderless dialog be moved by dragging its title area.</summary>
-    void DragWindow(MouseEventArgs e)
-    {
-        if (e.Button != MouseButtons.Left) return;
-        ReleaseCapture();
-        SendMessage(Handle, 0xA1, 2, IntPtr.Zero); // WM_NCLBUTTONDOWN, HTCAPTION
-    }
-
-    protected override void OnMouseDown(MouseEventArgs e)
-    {
-        base.OnMouseDown(e);
-        if (e.Y < 56 * DeviceDpi / 96) DragWindow(e);
-    }
-
-    protected override void OnShown(EventArgs e)
-    {
-        base.OnShown(e);
-        ActiveControl = null; // no control highlighted until the keyboard is used
-    }
-
-    protected override void OnPaint(PaintEventArgs e)
-    {
-        base.OnPaint(e);
-        using var pen = new Pen(Theme.CardBorder);
-        e.Graphics.DrawRectangle(pen, 0, 0, ClientSize.Width - 1, ClientSize.Height - 1);
-    }
-
-    // borderless: keep the drop shadow
-    protected override CreateParams CreateParams
-    {
-        get
-        {
-            var cp = base.CreateParams;
-            cp.ClassStyle |= 0x00020000; // CS_DROPSHADOW
-            return cp;
-        }
     }
 }
 

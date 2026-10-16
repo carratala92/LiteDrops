@@ -91,6 +91,15 @@ static class L
     public static string CloseToTrayDesc => T("The × button keeps LiteDrops running in the tray", "× で閉じても、トレイで動き続けます");
     public static string LanguageDesc => T("Restarts the app", "変更するとアプリが再起動します");
     public static string Done => T("Done", "完了");
+    public static string History => T("History", "履歴");
+    public static string ClaimHistory => T("Claim history", "受け取り履歴");
+    public static string ClaimedCount(int n) => T($"{n} drops claimed", $"{n} 個のドロップを受け取りました");
+    public static string NoHistory => T("No drops claimed yet", "まだ受け取ったドロップはありません");
+    public static string Close => T("Close", "閉じる");
+    public static string LinkAccount => T("Link account ›", "アカウント連携 ›");
+    public static string LinkAccountTip => T("Your game account isn't linked, so this campaign is skipped. Click to link it.",
+        "ゲームアカウントが未連携のため、このキャンペーンは飛ばしています。クリックで連携ページを開きます");
+    public static string UpdateAvailable(string version) => T($"Update available: v{version} ›", $"更新があります：v{version} ›");
     public static string MineBadges => T("Mine badges & emotes", "バッジ・エモートも掘る");
     public static string MineBadgesDesc => T("Off: only campaigns with in-game items",
         "オフにすると、ゲーム内アイテムがもらえるキャンペーンだけを掘ります");

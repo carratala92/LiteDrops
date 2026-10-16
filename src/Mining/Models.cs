@@ -72,7 +72,10 @@ public sealed class Campaign
     public required string GameName { get; init; }
     public required DateTime EndAt { get; init; }
     public required IReadOnlyList<Drop> Drops { get; init; }
-    public bool? AccountLinked { get; init; }
+    /// <summary>Whether the game account is linked to Twitch; null when unknown.</summary>
+    public bool? AccountLinked { get; set; }
+    /// <summary>Page where the game account can be linked.</summary>
+    public string? LinkUrl { get; set; }
     public bool InInventory { get; init; }
     public List<ChannelRef> Channels { get; } = [];
 
@@ -114,7 +117,8 @@ public sealed record WatchInfo(
     ChannelRef Channel, string GameName, string CampaignName, DateTime CampaignEndAt,
     string DropName, int CurrentMinutes, int RequiredMinutes);
 
-public sealed record CampaignRow(string GameName, string CampaignName, double Progress, bool Earnable);
+public sealed record CampaignRow(
+    string GameName, string CampaignName, double Progress, bool Earnable, bool NeedsLink, string? LinkUrl);
 
 public sealed record MinerSnapshot(
     MinerStatus Status, string StatusText, WatchInfo? Watching, IReadOnlyList<CampaignRow> Campaigns);
