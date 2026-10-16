@@ -25,6 +25,7 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     List<(string Name, string Id, string Slug)> _wantedGames = [];
     HashSet<string> _liveGameIds = [];
     bool _accountLinkQuery = true; // switched off if Twitch rejects that part of the query
+    readonly HashSet<string> _loggedSkips = [];
     CancellationTokenSource _wake = new();
     MinerSnapshot _snapshot = new(MinerStatus.Starting, "Starting…", null, []);
 
@@ -160,7 +161,17 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
             .ToList();
         Log.Info($"Found {_campaigns.Count} campaign(s), {_campaigns.Count(c => Wanted(c, now))} earnable, " +
                  $"{_campaigns.Count(c => c.BadgeOrEmoteOnly)} badge/emote only, " +
-                 $"{_campaigns.Count(c => c.AccountLinked == false)} not linked");
+                 $"{_campaigns.Count(c => c.NeedsLink)} not linked, " +
+                 $"{_campaigns.Count(c => c.WatchUnearnable)} not earnable by watching");
+        foreach (var c in _campaigns)
+        {
+            // explain each skipped campaign once, so the log says why it isn't mined
+            var reason = c.WatchUnearnable ? "its drops need a subscription or another mission, not watch time"
+                : c.NeedsLink ? $"the game account isn't linked ({c.LinkUrl})"
+                : c.BadgeOrEmoteOnly && !settings.MineBadges ? "badge / emote rewards only"
+                : null;
+            if (reason is not null && _loggedSkips.Add(c.Id)) Log.Info($"Skipping {c.GameName} / {c.Name}: {reason}");
+        }
     }
 
     bool Wanted(Campaign c, DateTime now) => c.CanEarn(now) && (settings.MineBadges || !c.BadgeOrEmoteOnly);
@@ -286,7 +297,8 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
     {
         foreach (var campaign in campaigns)
         {
-            foreach (var drop in campaign.Drops.Where(d => d.IsComplete && !d.IsClaimed && d.IsActive(DateTime.UtcNow)))
+            foreach (var drop in campaign.Drops.Where(d => d.WatchEarnable && d.IsComplete && !d.IsClaimed
+                                                           && d.IsActive(DateTime.UtcNow)))
             {
                 var instance = drop.InstanceId ?? $"{user.Id}#{campaign.Id}#{drop.Id}";
                 var result = await api.GqlAsync(Gql.ClaimDrop(instance), ct);
@@ -423,7 +435,8 @@ public sealed class Miner(TwitchApi api, AppSettings settings, TwitchUser user)
         var now = DateTime.UtcNow;
         var rows = _campaigns
             .Select(c => new CampaignRow(c.GameName, c.Name, c.Progress, Wanted(c, now),
-                c.AccountLinked == false, c.LinkUrl))
+                c.WatchUnearnable ? CampaignTag.NotByWatching : c.NeedsLink ? CampaignTag.NeedsLink : CampaignTag.None,
+                c.LinkUrl))
             .ToList();
         _snapshot = new MinerSnapshot(status, text, watching, rows);
         Changed?.Invoke(_snapshot);

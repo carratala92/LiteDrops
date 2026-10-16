@@ -97,6 +97,9 @@ static class L
     public static string NoHistory => T("No drops claimed yet", "まだ受け取ったドロップはありません");
     public static string Close => T("Close", "閉じる");
     public static string LinkAccount => T("Link account ›", "アカウント連携 ›");
+    public static string NotByWatching => T("Sub / mission", "サブスク・ミッション限定");
+    public static string NotByWatchingTip => T("These drops can't be earned by watching (they need a subscription or another mission), so the campaign is skipped.",
+        "視聴では獲得できないドロップ（サブスクなどのミッションが必要）のため、このキャンペーンは飛ばしています");
     public static string LinkAccountTip => T("Your game account isn't linked, so this campaign is skipped. Click to link it.",
         "ゲームアカウントが未連携のため、このキャンペーンは飛ばしています。クリックで連携ページを開きます");
     public static string UpdateAvailable(string version) => T($"Update available: v{version} ›", $"更新があります：v{version} ›");

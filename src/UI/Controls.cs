@@ -209,12 +209,15 @@ sealed class CampaignListBox : ListBox
         TextRenderer.DrawText(g, row.CampaignName, Theme.Small, new Rectangle(b.X + gameW, b.Y, nameW - (int)(8 * s), b.Height), Theme.SubText, flags);
         var pctW = (int)(44 * s);
         var barX = b.X + gameW + nameW;
-        if (row.NeedsLink)
+        if (row.Tag != CampaignTag.None)
         {
-            // game account not linked: the campaign is skipped, offer the link page instead
-            var tagW = TextRenderer.MeasureText(L.LinkAccount, Theme.Small).Width + 20 * s;
+            // skipped campaign: say why instead of showing progress
+            var (text, color) = row.Tag == CampaignTag.NeedsLink
+                ? (L.LinkAccount, Theme.Amber)
+                : (L.NotByWatching, Theme.SubText);
+            var tagW = TextRenderer.MeasureText(text, Theme.Small).Width + 20 * s;
             var tag = new RectangleF(b.Right - tagW - 2 * s, b.Y + (b.Height - 24 * s) / 2, tagW, 24 * s);
-            PillLink.PaintPill(g, tag, L.LinkAccount, Theme.Small, Theme.Amber, false, s);
+            PillLink.PaintPill(g, tag, text, Theme.Small, color, false, s);
             return;
         }
         var barW = b.Right - pctW - barX - (int)(6 * s);
@@ -236,16 +239,22 @@ sealed class CampaignListBox : ListBox
         base.OnMouseMove(e);
         var index = IndexFromPoint(e.Location);
         var row = RowAt(e.Location);
-        Cursor = row is { NeedsLink: true } ? Cursors.Hand : Cursors.Default;
+        Cursor = row is { Tag: CampaignTag.NeedsLink } ? Cursors.Hand : Cursors.Default;
         if (index == _tipIndex) return;
         _tipIndex = index;
-        _tip.SetToolTip(this, row is { NeedsLink: true } ? L.LinkAccountTip : "");
+        _tip.SetToolTip(this, row?.Tag switch
+        {
+            CampaignTag.NeedsLink => L.LinkAccountTip,
+            CampaignTag.NotByWatching => L.NotByWatchingTip,
+            _ => "",
+        });
     }
 
     protected override void OnMouseUp(MouseEventArgs e)
     {
         base.OnMouseUp(e);
-        if (e.Button == MouseButtons.Left && RowAt(e.Location) is { NeedsLink: true } row) LinkClicked?.Invoke(row.LinkUrl);
+        if (e.Button == MouseButtons.Left && RowAt(e.Location) is { Tag: CampaignTag.NeedsLink } row)
+            LinkClicked?.Invoke(row.LinkUrl);
     }
 
     protected override void Dispose(bool disposing)
