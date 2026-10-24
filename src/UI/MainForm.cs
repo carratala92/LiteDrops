@@ -919,24 +919,25 @@ static class AutoStart
     }
 
     public static void Set(bool enabled)
-{
-    using var key = Registry.CurrentUser.CreateSubKey(RunKey);
-    RemoveStale(key);
-    // migrate the old shared entry, but only if it belongs to this copy
-    if (key.GetValue(LegacyName) as string == Command) key.DeleteValue(LegacyName, throwOnMissingValue: false);
-    if (enabled) key.SetValue(Name, Command);
-    else key.DeleteValue(Name, throwOnMissingValue: false);
-}
-
-/// <summary>Deletes entries of copies that were moved or deleted (their exe is gone).</summary>
-static void RemoveStale(RegistryKey key)
-{
-    foreach (var name in key.GetValueNames())
     {
-        if (!name.StartsWith("LiteDrops-", StringComparison.Ordinal)) continue;
-        // the command is: "C:\path\LiteDrops.exe" --tray
-        if (key.GetValue(name) is string { } command && command.Split('"') is [_, var exe, ..]
-            && !File.Exists(exe))
-            key.DeleteValue(name, throwOnMissingValue: false);
+        using var key = Registry.CurrentUser.CreateSubKey(RunKey);
+        RemoveStale(key);
+        // migrate the old shared entry, but only if it belongs to this copy
+        if (key.GetValue(LegacyName) as string == Command) key.DeleteValue(LegacyName, throwOnMissingValue: false);
+        if (enabled) key.SetValue(Name, Command);
+        else key.DeleteValue(Name, throwOnMissingValue: false);
+    }
+
+    /// <summary>Deletes entries of copies that were moved or deleted (their exe is gone).</summary>
+    static void RemoveStale(RegistryKey key)
+    {
+        foreach (var name in key.GetValueNames())
+        {
+            if (!name.StartsWith("LiteDrops-", StringComparison.Ordinal)) continue;
+            // the command is: "C:\path\LiteDrops.exe" --tray
+            if (key.GetValue(name) is string { } command && command.Split('"') is [_, var exe, ..]
+                && !File.Exists(exe))
+                key.DeleteValue(name, throwOnMissingValue: false);
+        }
     }
 }
